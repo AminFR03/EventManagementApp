@@ -1,16 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { eventsAPI } from '../api';
+import { eventsAPI, categoriesAPI } from '../api';
 
 export default function CreateEventPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     title: '', description: '', location: '',
-    date: '', time: '', price: 0, totalTickets: 100
+    date: '', time: '', price: 0, totalTickets: 100,
+    categoryId: '', tags: ''
   });
+  const [categories, setCategories] = useState([]);
   const [errors, setErrors] = useState([]);
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  async function fetchCategories() {
+    try {
+      const res = await categoriesAPI.getAll();
+      setCategories(res.data.categories);
+      if (res.data.categories.length > 0) {
+        setForm(f => ({ ...f, categoryId: res.data.categories[0].id }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch categories');
+    }
+  }
 
   function onChange(e) {
     const val = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
@@ -23,7 +41,11 @@ export default function CreateEventPage() {
     setLoading(true);
     setErrors([]);
     try {
-      await eventsAPI.create(form);
+      // Process tags
+      const tagsArray = form.tags.split(',').map(t => t.trim()).filter(t => t.length > 0);
+      const submitData = { ...form, tags: tagsArray };
+
+      await eventsAPI.create(submitData);
       setSuccess('Event created successfully! Redirecting...');
       setTimeout(() => navigate('/'), 1500);
     } catch (err) {
@@ -36,19 +58,40 @@ export default function CreateEventPage() {
 
   return (
     <div className="page-container">
-      <div className="form-card wide card" style={{ padding: '2rem' }}>
+      <div className="form-card wide card" style={{ padding: '2rem', position: 'relative' }}>
+        {loading && (
+          <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center', borderRadius: 'inherit' }}>
+            <div style={{ color: 'white', fontWeight: 'bold' }}>Processing...</div>
+          </div>
+        )}
+
         <div className="page-header" style={{ textAlign: 'center' }}>
           <h1 className="page-title">Create New Event</h1>
           <p className="page-subtitle">Fill in the details to publish your event</p>
         </div>
 
-        {success && <div className="alert alert-success">✓ {success}</div>}
+        {success && <div className="alert alert-success" style={{ marginBottom: '1.5rem', padding: '1rem', fontSize: '1rem' }}>🎉 {success}</div>}
         {errors.map((e, i) => <div key={i} className="alert alert-error">✕ {e}</div>)}
 
         <form onSubmit={onSubmit}>
           <div className="form-group">
             <label className="form-label">Event Title</label>
             <input className="form-input" name="title" placeholder="e.g. Tech Conference 2026" value={form.title} onChange={onChange} required />
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Category</label>
+              <select className="form-input" name="categoryId" value={form.categoryId} onChange={onChange} required>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Tags (comma separated)</label>
+              <input className="form-input" name="tags" placeholder="music, technology, outdoors" value={form.tags} onChange={onChange} />
+            </div>
           </div>
 
           <div className="form-row">

@@ -1,10 +1,10 @@
 # ✦ Eventio — Event Management Application
 
-A full-stack Event Management platform built with **React + Express + SQLite**. Complete Sprint 1 implementation covering all 5 user stories: User Registration, Event Creation, Ticket Purchase, Notifications, and Profile Management.
+A full-stack Event Management platform built with **React + Express + SQLite**. The project is structured across **3 sprints** — Sprint 1 is complete, Sprints 2 and 3 are planned for upcoming development by the team.
 
 ---
 
-## 🚀 Features (Sprint 1 — Complete)
+## 🚀 Sprint 1 — Core Platform ✅ (Complete)
 
 ### US-40 — User Registration
 - Registration form with full name, email, password
@@ -43,6 +43,84 @@ A full-stack Event Management platform built with **React + Express + SQLite**. 
 - Update name
 - Change password (requires current password confirmation)
 - Form validation and success/error feedback
+
+---
+
+## 📋 Sprint 2 — Discovery & Social Features 🔜 (To Be Completed)
+
+### US-45 — Event Search & Filtering
+- Search events by title, location, or description (keyword search)
+- Filter events by date range (upcoming, this week, this month)
+- Filter by price range (free, paid, custom range)
+- Sort results by date, price, or popularity (most tickets sold)
+- Persistent filter state across navigation
+
+### US-46 — Event Categories & Tags
+- Predefined categories (Conference, Concert, Workshop, Sports, Networking, etc.)
+- Assign one or more categories when creating an event
+- Category-based browsing page with visual category cards
+- Tag-based filtering combined with search
+- Category icons and color coding on event cards
+
+### US-47 — Comments & Ratings
+- Comment section on each event detail page
+- Star rating system (1–5 stars) for attended events
+- Average rating displayed on event cards
+- Edit and delete own comments
+- Comment timestamps and user attribution
+
+### US-48 — Event Sharing
+- Generate shareable event links (public URL)
+- Social media share buttons (copy link, Twitter/X, Facebook, LinkedIn)
+- QR code generation for each event
+- Share count tracking per event
+- Open Graph meta tags for rich link previews
+
+### US-49 — Calendar Integration
+- Calendar view of all events (monthly/weekly toggle)
+- Add event to personal calendar (iCal / Google Calendar export)
+- Visual indicators for events the user has tickets for
+- "My Schedule" page showing user's upcoming events
+- Conflict detection when buying tickets for overlapping events
+
+---
+
+## 📋 Sprint 3 — Admin Dashboard & Analytics 🔜 (To Be Completed)
+
+### US-50 — Admin Dashboard
+- Admin-only dashboard with platform overview statistics
+- Total users, events, tickets sold, and revenue metrics
+- Graphical charts (bar, line, pie) for visual data representation
+- Recent activity feed (latest registrations, purchases, events)
+- Quick actions: suspend user, feature event, send announcements
+
+### US-51 — Role-Based Access Control
+- Three user roles: **Admin**, **Organizer**, **Attendee**
+- Admin can manage all users and events
+- Organizer can create/edit/delete their own events
+- Attendee can browse events and purchase tickets
+- Role assignment and management from admin panel
+
+### US-52 — Event Reports & Export
+- Event analytics for organizers (views, ticket sales over time, revenue)
+- Export event attendee list as CSV/PDF
+- Post-event summary report with attendance stats
+- Comparative analytics across organizer's events
+- Downloadable financial summaries per event
+
+### US-53 — Payment History & Refunds
+- Full payment history page for each user
+- Detailed transaction records (event, date, quantity, amount, status)
+- Refund request system with reason field
+- Admin refund approval/rejection workflow
+- Automatic ticket restock on approved refunds
+
+### US-54 — Email Notifications
+- Email verification on registration (confirmation link)
+- Email notification on ticket purchase (receipt + event details)
+- Event reminder emails (24h and 1h before event)
+- Email notification when an event the user has tickets for is updated/cancelled
+- Configurable email preferences in user profile settings
 
 ---
 

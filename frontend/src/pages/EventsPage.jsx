@@ -1,25 +1,43 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { eventsAPI, ticketsAPI } from '../api';
+import { eventsAPI, categoriesAPI } from '../api';
 
 export default function EventsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  
   const [events, setEvents] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [purchaseModal, setPurchaseModal] = useState(null);
-  const [quantity, setQuantity] = useState(1);
-  const [purchasing, setPurchasing] = useState(false);
-  const [purchaseResult, setPurchaseResult] = useState(null);
+
+  // Filter state
+  const queryParams = new URLSearchParams(location.search);
+  const initialCategory = queryParams.get('category') || '';
+  
+  const [filters, setFilters] = useState({
+    search: '',
+    category: initialCategory,
+    dateRange: 'all',
+    minPrice: '',
+    maxPrice: '',
+    sortBy: 'date',
+    tags: ''
+  });
 
   useEffect(() => {
-    fetchEvents();
-  }, []);
+    fetchData();
+  }, [filters]);
 
-  async function fetchEvents() {
+  async function fetchData() {
     try {
-      const res = await eventsAPI.getAll();
+      if (categories.length === 0) {
+        const catRes = await categoriesAPI.getAll();
+        setCategories(catRes.data.categories);
+      }
+      
+      const res = await eventsAPI.getAll(filters);
       setEvents(res.data.events);
     } catch (err) {
       console.error(err);
@@ -28,195 +46,159 @@ export default function EventsPage() {
     }
   }
 
-  function openPurchaseModal(event) {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    setPurchaseModal(event);
-    setQuantity(1);
-    setPurchaseResult(null);
-  }
-
-  async function handlePurchase() {
-    setPurchasing(true);
-    try {
-      const res = await ticketsAPI.purchase({
-        eventId: purchaseModal.id,
-        quantity
-      });
-      setPurchaseResult(res.data);
-      fetchEvents(); // refresh available tickets
-    } catch (err) {
-      alert(err.response?.data?.error || 'Purchase failed');
-    } finally {
-      setPurchasing(false);
-    }
-  }
-
-  function closeModal() {
-    setPurchaseModal(null);
-    setPurchaseResult(null);
+  function handleFilterChange(e) {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
   }
 
   return (
     <div className="page-container">
       <div className="hero">
         <h1>Discover Events</h1>
-        <p>Find and attend incredible events happening around you. Buy tickets securely and never miss out.</p>
-        {user && (
+        <p>Find and attend incredible events happening around you.</p>
+        {(user?.role === 'ORGANIZER' || user?.role === 'ADMIN') && (
           <button className="btn btn-primary" onClick={() => navigate('/create-event')}>
             + Create New Event
           </button>
         )}
       </div>
 
-      {loading ? (
-        <div className="empty-state"><p>Loading events...</p></div>
-      ) : events.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-state-icon">📭</div>
-          <h3>No events yet</h3>
-          <p>Be the first to create an amazing event!</p>
-        </div>
-      ) : (
-        <div className="card-grid">
-          {events.map(event => (
-            <div key={event.id} className="card">
-              <div className="event-card-header">
-                <div className="event-card-title">{event.title}</div>
-                <div className={`event-card-price ${event.price === 0 ? 'free' : ''}`}>
-                  {event.price === 0 ? 'Free' : `$${event.price.toFixed(2)}`}
-                </div>
-              </div>
-              <div className="event-card-meta">
-                <div className="event-meta-item">
-                  <span className="event-meta-icon">📅</span> {event.date}
-                </div>
-                <div className="event-meta-item">
-                  <span className="event-meta-icon">⏰</span> {event.time}
-                </div>
-                <div className="event-meta-item">
-                  <span className="event-meta-icon">📍</span> {event.location}
-                </div>
-              </div>
-              <div className="event-card-desc">{event.description}</div>
-              <div className="event-card-footer">
-                <span className="event-card-creator">By {event.creator_name}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <span className={`tickets-remaining ${event.available_tickets < 10 ? 'low' : ''}`}>
-                    {event.available_tickets} left
-                  </span>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => openPurchaseModal(event)}
-                    disabled={event.available_tickets === 0}
-                  >
-                    {event.available_tickets === 0 ? 'Sold Out' : 'Buy Ticket'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Purchase Modal */}
-      {purchaseModal && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            {!purchaseResult ? (
-              <>
-                <div className="modal-header">
-                  <h2 className="modal-title">Purchase Tickets</h2>
-                  <button className="modal-close" onClick={closeModal}>×</button>
-                </div>
-                <p style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                  {purchaseModal.title}
-                </p>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  {purchaseModal.date} · {purchaseModal.time} · {purchaseModal.location}
-                </p>
-
-                <div style={{ margin: '1.5rem 0' }}>
-                  <label className="form-label">Quantity</label>
-                  <div className="quantity-selector">
-                    <button className="quantity-btn" onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button>
-                    <span className="quantity-display">{quantity}</span>
-                    <button className="quantity-btn" onClick={() => setQuantity(Math.min(10, quantity + 1))}>+</button>
-                  </div>
-                </div>
-
-                <div className="purchase-summary">
-                  <div className="purchase-summary-row">
-                    <span>Price per ticket</span>
-                    <span>${purchaseModal.price.toFixed(2)}</span>
-                  </div>
-                  <div className="purchase-summary-row">
-                    <span>Quantity</span>
-                    <span>× {quantity}</span>
-                  </div>
-                  <div className="purchase-summary-row total">
-                    <span>Total</span>
-                    <span>${(purchaseModal.price * quantity).toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <div className="mock-card">
-                  <div className="mock-card-label">💳 Mock Payment Card</div>
-                  <div className="mock-card-number">•••• •••• •••• 4242</div>
-                </div>
-
-                <button
-                  className="btn btn-success btn-block"
-                  onClick={handlePurchase}
-                  disabled={purchasing}
-                >
-                  {purchasing ? 'Processing Payment...' : `Pay $${(purchaseModal.price * quantity).toFixed(2)}`}
-                </button>
-              </>
-            ) : (
-              <>
-                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎉</div>
-                  <h2 className="modal-title" style={{ marginBottom: '0.5rem' }}>Purchase Confirmed!</h2>
-                  <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                    Your tickets are ready
-                  </p>
-                </div>
-                <div className="ticket-receipt">
-                  <div className="ticket-receipt-row">
-                    <span>Event</span>
-                    <strong>{purchaseResult.ticket.event_title}</strong>
-                  </div>
-                  <div className="ticket-receipt-row">
-                    <span>Date</span>
-                    <strong>{purchaseResult.ticket.event_date}</strong>
-                  </div>
-                  <div className="ticket-receipt-row">
-                    <span>Quantity</span>
-                    <strong>{purchaseResult.ticket.quantity}</strong>
-                  </div>
-                  <div className="ticket-receipt-row">
-                    <span>Payment ID</span>
-                    <strong>{purchaseResult.payment.id}</strong>
-                  </div>
-                  <div className="ticket-receipt-row">
-                    <span>Total Paid</span>
-                    <strong style={{ color: 'var(--success)' }}>${purchaseResult.payment.amount.toFixed(2)}</strong>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
-                  <button className="btn btn-secondary" style={{ flex: 1 }} onClick={closeModal}>Close</button>
-                  <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => { closeModal(); navigate('/my-tickets'); }}>
-                    View My Tickets
-                  </button>
-                </div>
-              </>
-            )}
+      <div style={{ display: 'flex', gap: '2rem', marginTop: '2rem', alignItems: 'flex-start' }}>
+        {/* Filters Sidebar */}
+        <div className="card" style={{ width: '300px', padding: '1.5rem', flexShrink: 0, position: 'sticky', top: '100px' }}>
+          <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            🔍 Search & Filter
+          </h3>
+          
+          <div className="form-group">
+            <label className="form-label">Keyword Search</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              name="search" 
+              placeholder="Title, description, location..." 
+              value={filters.search}
+              onChange={handleFilterChange}
+            />
           </div>
+
+          <div className="form-group">
+            <label className="form-label">Category</label>
+            <select className="form-input" name="category" value={filters.category} onChange={handleFilterChange}>
+              <option value="">All Categories</option>
+              {categories.map(c => (
+                <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Date Range</label>
+            <select className="form-input" name="dateRange" value={filters.dateRange} onChange={handleFilterChange}>
+              <option value="all">All Dates</option>
+              <option value="upcoming">Upcoming (from today)</option>
+              <option value="this_week">This Week</option>
+              <option value="this_month">This Month</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Price Range ($)</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input type="number" className="form-input" name="minPrice" placeholder="Min" min="0" value={filters.minPrice} onChange={handleFilterChange} />
+              <input type="number" className="form-input" name="maxPrice" placeholder="Max" min="0" value={filters.maxPrice} onChange={handleFilterChange} />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Tags (comma separated)</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              name="tags" 
+              placeholder="music, tech, outdoors..." 
+              value={filters.tags}
+              onChange={handleFilterChange}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Sort By</label>
+            <select className="form-input" name="sortBy" value={filters.sortBy} onChange={handleFilterChange}>
+              <option value="date">Date (Earliest First)</option>
+              <option value="price_asc">Price (Low to High)</option>
+              <option value="price_desc">Price (High to Low)</option>
+              <option value="popularity">Most Popular (Tickets Sold)</option>
+              <option value="rating">Highest Rated</option>
+            </select>
+          </div>
+          
+          <button 
+            className="btn btn-secondary btn-block" 
+            onClick={() => setFilters({ search: '', category: '', dateRange: 'all', minPrice: '', maxPrice: '', sortBy: 'date', tags: '' })}
+          >
+            Reset Filters
+          </button>
         </div>
-      )}
+
+        {/* Results */}
+        <div style={{ flex: 1 }}>
+          {loading ? (
+            <div className="empty-state"><p>Loading events...</p></div>
+          ) : events.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">📭</div>
+              <h3>No events found</h3>
+              <p>Try adjusting your search criteria</p>
+            </div>
+          ) : (
+            <div className="card-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+              {events.map(event => (
+                <div 
+                  key={event.id} 
+                  className="card event-card" 
+                  onClick={() => navigate(`/event/${event.id}`)}
+                  style={{ cursor: 'pointer', transition: 'transform 0.2s', borderTop: event.category_color ? `4px solid ${event.category_color}` : 'none' }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-5px)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                  <div className="event-card-header">
+                    <div className="event-card-title">{event.title}</div>
+                    <div className={`event-card-price ${event.price === 0 ? 'free' : ''}`}>
+                      {event.price === 0 ? 'Free' : `$${event.price.toFixed(2)}`}
+                    </div>
+                  </div>
+                  
+                  {event.category_name && (
+                    <div style={{ marginBottom: '1rem' }}>
+                      <span className="badge" style={{ backgroundColor: event.category_color + '22', color: event.category_color, border: `1px solid ${event.category_color}` }}>
+                        {event.category_icon} {event.category_name}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="event-card-meta">
+                    <div className="event-meta-item"><span className="event-meta-icon">📅</span> {event.date}</div>
+                    <div className="event-meta-item"><span className="event-meta-icon">📍</span> {event.location}</div>
+                    <div className="event-meta-item">
+                      <span className="event-meta-icon">⭐</span> {event.avg_rating.toFixed(1)} ({event.review_count})
+                    </div>
+                  </div>
+                  
+                  <div className="event-card-desc" style={{ WebkitLineClamp: 2 }}>{event.description}</div>
+                  
+                  <div className="event-card-footer" style={{ marginTop: 'auto' }}>
+                    <span className="event-card-creator">By {event.creator_name}</span>
+                    <span className={`tickets-remaining ${event.available_tickets < 10 ? 'low' : ''}`}>
+                      {event.available_tickets === 0 ? 'Sold Out' : `${event.available_tickets} left`}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

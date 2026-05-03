@@ -220,6 +220,65 @@ button { font-family: inherit; }
 }
 
 /* ═══════════════════════════════════════════
+   DROPDOWNS
+   ═══════════════════════════════════════════ */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 200px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 200;
+  display: none;
+  flex-direction: column;
+  padding: 0.5rem 0;
+  margin-top: 0.5rem;
+}
+
+/* Make dropdown menu appear on hover or focus-within */
+.dropdown:hover .dropdown-menu,
+.dropdown:focus-within .dropdown-menu {
+  display: flex;
+}
+
+/* If you have a dropdown on the right side (like user profile), align menu to right */
+.nav-links > .dropdown:last-child .dropdown-menu {
+  left: auto;
+  right: 0;
+}
+
+.dropdown-item {
+  padding: 0.75rem 1.25rem;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: background-color 0.2s, color 0.2s;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dropdown-item:hover, .dropdown-item:focus {
+  background-color: var(--bg-glass);
+  color: var(--accent-primary);
+  outline: none;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: var(--border);
+  margin: 0.25rem 0;
+}
+
+
+/* ═══════════════════════════════════════════
    LAYOUT
    ═══════════════════════════════════════════ */
 .page-container {

@@ -23,6 +23,19 @@ function authenticate(req, res, next) {
 }
 
 /**
+ * Middleware: Restrict to specific roles (ADMIN, ORGANIZER, ATTENDEE)
+ */
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user) return res.status(401).json({ success: false, error: 'Authentication required' });
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ success: false, error: 'Insufficient permissions' });
+    }
+    next();
+  };
+}
+
+/**
  * Helper: Generate a JWT token for a user
  */
 function generateToken(user) {
@@ -33,4 +46,4 @@ function generateToken(user) {
   );
 }
 
-module.exports = { authenticate, generateToken };
+module.exports = { authenticate, requireRole, generateToken };

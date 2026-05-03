@@ -27,7 +27,7 @@ router.post('/register', validateRegistration, (req, res) => {
     db.prepare('INSERT INTO users (id, name, email, password) VALUES (?, ?, ?, ?)')
       .run(id, name.trim(), email.toLowerCase().trim(), hashedPassword);
 
-    const user = db.prepare('SELECT id, name, email, role, avatar, created_at FROM users WHERE id = ?').get(id);
+    const user = db.prepare('SELECT id, name, email, role, avatar, is_suspended, email_prefs, created_at FROM users WHERE id = ?').get(id);
     const token = generateToken(user);
 
     res.status(201).json({
@@ -85,7 +85,7 @@ router.post('/login', (req, res) => {
  */
 router.get('/profile', authenticate, (req, res) => {
   try {
-    const user = db.prepare('SELECT id, name, email, role, avatar, created_at FROM users WHERE id = ?').get(req.user.id);
+    const user = db.prepare('SELECT id, name, email, role, avatar, is_suspended, email_prefs, created_at FROM users WHERE id = ?').get(req.user.id);
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
@@ -101,7 +101,7 @@ router.get('/profile', authenticate, (req, res) => {
  */
 router.put('/profile', authenticate, (req, res) => {
   try {
-    const { name, currentPassword, newPassword } = req.body;
+    const { name, currentPassword, newPassword, emailPrefs } = req.body;
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
 
     if (!user) {
@@ -126,7 +126,12 @@ router.put('/profile', authenticate, (req, res) => {
       db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, req.user.id);
     }
 
-    const updatedUser = db.prepare('SELECT id, name, email, role, avatar, created_at FROM users WHERE id = ?').get(req.user.id);
+    // Update email preferences if provided
+    if (emailPrefs) {
+      db.prepare('UPDATE users SET email_prefs = ? WHERE id = ?').run(emailPrefs, req.user.id);
+    }
+
+    const updatedUser = db.prepare('SELECT id, name, email, role, avatar, is_suspended, email_prefs, created_at FROM users WHERE id = ?').get(req.user.id);
 
     res.json({ success: true, message: 'Profile updated!', user: updatedUser });
   } catch (err) {

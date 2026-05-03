@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { notificationsAPI } from '../api';
 
@@ -8,46 +8,32 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showNotifs, setShowNotifs] = useState(false);
-  const dropdownRef = useRef(null);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => {
     if (user) {
       fetchNotifications();
-      const interval = setInterval(fetchNotifications, 15000);
+      const interval = setInterval(fetchNotifications, 30000); // Poll every 30s
       return () => clearInterval(interval);
     }
   }, [user]);
-
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setShowNotifs(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   async function fetchNotifications() {
     try {
       const res = await notificationsAPI.getAll();
       setNotifications(res.data.notifications);
-      setUnreadCount(res.data.unreadCount);
-    } catch (err) { /* silently fail */ }
+    } catch (err) {
+      console.error('Failed to fetch notifications');
+    }
   }
 
   async function markAsRead(id) {
-    await notificationsAPI.markRead(id);
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: 1 } : n));
-    setUnreadCount(prev => Math.max(0, prev - 1));
-  }
-
-  async function markAllRead() {
-    await notificationsAPI.markAllRead();
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
-    setUnreadCount(0);
+    try {
+      await notificationsAPI.markRead(id);
+      fetchNotifications();
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   function handleLogout() {
@@ -55,77 +41,116 @@ export default function Navbar() {
     navigate('/login');
   }
 
-  function isActive(path) {
-    return location.pathname === path ? 'nav-link active' : 'nav-link';
-  }
-
-  function timeAgo(dateStr) {
-    const diff = Date.now() - new Date(dateStr + 'Z').getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  }
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
     <nav className="navbar">
-      <Link to="/" className="navbar-brand">✦ Eventio</Link>
+      <div className="nav-brand">
+        <Link to="/" style={{ color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '1.5rem' }}>🎟️</span> Eventio
+        </Link>
+      </div>
+
       <div className="nav-links">
-        <Link to="/" className={isActive('/')}>Events</Link>
-        {user && (
+        <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>Events</Link>
+        <Link to="/categories" className={`nav-link ${location.pathname === '/categories' ? 'active' : ''}`}>Categories</Link>
+        <Link to="/calendar" className={`nav-link ${location.pathname === '/calendar' ? 'active' : ''}`}>Calendar</Link>
+        
+        {user ? (
           <>
-            <Link to="/create-event" className={isActive('/create-event')}>Create</Link>
-            <Link to="/my-tickets" className={isActive('/my-tickets')}>Tickets</Link>
-            <Link to="/profile" className={isActive('/profile')}>Profile</Link>
+            <div className="dropdown">
+              <button className="nav-link dropdown-toggle">Tickets</button>
+              <div className="dropdown-menu">
+                <Link to="/my-tickets" className="dropdown-item">My Tickets</Link>
+                <Link to="/payment-history" className="dropdown-item">Payment History</Link>
+              </div>
+            </div>
 
-            {/* Notifications */}
-            <div style={{ position: 'relative' }} ref={dropdownRef}>
-              <button className="nav-notification-btn" onClick={() => setShowNotifs(!showNotifs)}>
+            {(user.role === 'ORGANIZER' || user.role === 'ADMIN') && (
+              <div className="dropdown">
+                <button className="nav-link dropdown-toggle">Manage</button>
+                <div className="dropdown-menu">
+                  <Link to="/create-event" className="dropdown-item">Create Event</Link>
+                  <Link to="/reports" className="dropdown-item">Event Reports</Link>
+                  {user.role === 'ADMIN' && (
+                    <Link to="/admin" className="dropdown-item">Admin Dashboard</Link>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div style={{ position: 'relative' }}>
+              <button 
+                className="nav-link" 
+                onClick={() => setShowNotifications(!showNotifications)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', position: 'relative' }}
+              >
                 🔔
-                {unreadCount > 0 && <span className="notification-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+                {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
               </button>
-
-              {showNotifs && (
+              
+              {showNotifications && (
                 <div className="notification-dropdown">
-                  <div className="notification-dropdown-header">
-                    <span className="notification-dropdown-title">Notifications</span>
+                  <div className="notification-header">
+                    <h4>Notifications</h4>
                     {unreadCount > 0 && (
-                      <button className="btn btn-sm btn-secondary" onClick={markAllRead}>Mark all read</button>
+                      <button 
+                        className="btn btn-sm btn-secondary"
+                        onClick={async () => {
+                          await notificationsAPI.markAllRead();
+                          fetchNotifications();
+                        }}
+                      >
+                        Mark all read
+                      </button>
                     )}
                   </div>
-                  {notifications.length === 0 ? (
-                    <div className="notification-empty">No notifications yet</div>
-                  ) : (
-                    notifications.map(n => (
-                      <div
-                        key={n.id}
-                        className={`notification-item ${n.is_read ? '' : 'unread'}`}
-                        onClick={() => !n.is_read && markAsRead(n.id)}
-                      >
-                        <div className="notification-item-title">{n.title}</div>
-                        <div className="notification-item-msg">{n.message}</div>
-                        <div className="notification-item-time">{timeAgo(n.created_at)}</div>
+                  <div className="notification-list">
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        No notifications
                       </div>
-                    ))
-                  )}
+                    ) : (
+                      notifications.map(n => (
+                        <div 
+                          key={n.id} 
+                          className={`notification-item ${n.is_read ? 'read' : ''}`}
+                          onClick={() => !n.is_read && markAsRead(n.id)}
+                        >
+                          <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.25rem' }}>{n.title}</div>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{n.message}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                            {new Date(n.created_at).toLocaleString()}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>
 
-            <div className="nav-user" onClick={() => navigate('/profile')}>
-              <div className="nav-avatar">{user.name?.charAt(0).toUpperCase()}</div>
-              <span className="nav-user-name">{user.name}</span>
+            <div className="dropdown">
+              <button className="nav-link dropdown-toggle" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div className="avatar" style={{ width: '30px', height: '30px', backgroundColor: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', fontWeight: 'bold' }}>
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                {user.name}
+              </button>
+              <div className="dropdown-menu">
+                <Link to="/profile" className="dropdown-item">Profile Settings</Link>
+                <div className="dropdown-divider"></div>
+                <button onClick={handleLogout} className="dropdown-item text-danger" style={{ textAlign: 'left', width: '100%', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  Logout
+                </button>
+              </div>
             </div>
-            <button className="btn-logout" onClick={handleLogout}>Logout</button>
           </>
-        )}
-        {!user && (
-          <>
-            <Link to="/login" className={isActive('/login')}>Login</Link>
-            <Link to="/register" className="btn btn-primary btn-sm">Get Started</Link>
-          </>
+        ) : (
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <Link to="/login" className="btn btn-secondary">Login</Link>
+            <Link to="/register" className="btn btn-primary">Sign Up</Link>
+          </div>
         )}
       </div>
     </nav>

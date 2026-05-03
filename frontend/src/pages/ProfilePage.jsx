@@ -12,6 +12,23 @@ export default function ProfilePage() {
   const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  
+  const [emailPrefs, setEmailPrefs] = useState({
+    purchase: true,
+    reminder: true,
+    updates: true,
+    newsletter: true
+  });
+  const [prefsMsg, setPrefsMsg] = useState({ type: '', text: '' });
+  const [savingPrefs, setSavingPrefs] = useState(false);
+
+  useEffect(() => {
+    if (user?.email_prefs) {
+      try {
+        setEmailPrefs(JSON.parse(user.email_prefs));
+      } catch (e) {}
+    }
+  }, [user]);
 
   async function handleUpdateProfile(e) {
     e.preventDefault();
@@ -47,6 +64,25 @@ export default function ProfilePage() {
     } finally {
       setSavingPassword(false);
     }
+  }
+
+  async function handleSavePrefs(e) {
+    e.preventDefault();
+    setSavingPrefs(true);
+    setPrefsMsg({ type: '', text: '' });
+    try {
+      const res = await authAPI.updateProfile({ emailPrefs: JSON.stringify(emailPrefs) });
+      updateUser(res.data.user);
+      setPrefsMsg({ type: 'success', text: 'Email preferences saved!' });
+    } catch (err) {
+      setPrefsMsg({ type: 'error', text: 'Failed to save preferences' });
+    } finally {
+      setSavingPrefs(false);
+    }
+  }
+
+  function togglePref(key) {
+    setEmailPrefs(prev => ({ ...prev, [key]: !prev[key] }));
   }
 
   if (!user) return null;
@@ -142,6 +178,41 @@ export default function ProfilePage() {
             </div>
             <button className="btn btn-primary" disabled={savingPassword}>
               {savingPassword ? 'Changing...' : 'Change Password'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Email Preferences Section */}
+      <div className="profile-section">
+        <h3 className="profile-section-title">📧 Email Preferences</h3>
+        <div className="card" style={{ padding: '1.5rem' }}>
+          {prefsMsg.text && (
+            <div className={`alert alert-${prefsMsg.type}`}>
+              {prefsMsg.type === 'success' ? '✓' : '✕'} {prefsMsg.text}
+            </div>
+          )}
+          <form onSubmit={handleSavePrefs}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={emailPrefs.purchase} onChange={() => togglePref('purchase')} style={{ width: '1.2rem', height: '1.2rem' }} />
+                <span><strong>Purchase Receipts</strong> - Emails when you buy tickets</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={emailPrefs.reminder} onChange={() => togglePref('reminder')} style={{ width: '1.2rem', height: '1.2rem' }} />
+                <span><strong>Event Reminders</strong> - 24h and 1h before your events</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={emailPrefs.updates} onChange={() => togglePref('updates')} style={{ width: '1.2rem', height: '1.2rem' }} />
+                <span><strong>Event Updates</strong> - When an event you have tickets for is updated/cancelled</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={emailPrefs.newsletter} onChange={() => togglePref('newsletter')} style={{ width: '1.2rem', height: '1.2rem' }} />
+                <span><strong>Newsletter</strong> - Occasional news and platform updates</span>
+              </label>
+            </div>
+            <button className="btn btn-primary" disabled={savingPrefs}>
+              {savingPrefs ? 'Saving...' : 'Save Preferences'}
             </button>
           </form>
         </div>
